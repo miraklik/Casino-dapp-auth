@@ -1,13 +1,12 @@
 package middleware
 
 import (
-	"casino-web3/config"
 	"casino-web3/utils"
-	"fmt"
 	"net/http"
+	"os"
+	"strings"
 
 	"github.com/gin-gonic/gin"
-	"github.com/golang-jwt/jwt/v4"
 )
 
 const (
@@ -24,7 +23,7 @@ const (
 	ErrorClaims            = "invalid claims"
 )
 
-func parseToken(tokenStr string) (jwt.MapClaims, error) {
+/*func parseToken(tokenStr string) (jwt.MapClaims, error) {
 	cfg, err := config.Load()
 	if err != nil {
 		return nil, fmt.Errorf(ErrorConfig)
@@ -47,17 +46,25 @@ func parseToken(tokenStr string) (jwt.MapClaims, error) {
 	}
 
 	return claims, nil
-}
+}*/
 
 func JwtAuthMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		err := utils.ValidateToken(c)
-		if err != nil {
-			c.JSON(http.StatusUnauthorized, gin.H{"Unauthorized": "Authentication required"})
-			fmt.Println(err)
-			c.Abort()
+		tokenStr := c.GetHeader("Authorization")
+		if tokenStr == "" {
+			c.AbortWithStatus(http.StatusUnauthorized)
 			return
 		}
+
+		tokenStr = strings.Replace(tokenStr, "Bearer ", "", 1)
+
+		claims, err := utils.ValidateToken(tokenStr, os.Getenv("JWT_SECRET"))
+		if err != nil {
+			c.AbortWithStatus(http.StatusUnauthorized)
+			return
+		}
+
+		c.Set("user_id", claims["user_id"])
 		c.Next()
 	}
 }

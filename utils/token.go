@@ -49,22 +49,24 @@ func GenerateToken(user db.User) (string, error) {
 	return signedToken, nil
 }
 
-func ValidateToken(c *gin.Context) error {
-	token, err := GetToken(c)
-	if err != nil {
-		log.Printf("Could not get token: %v", err)
-		return err
-	}
-	if token == nil {
-		return errors.New("token is nil")
+func ValidateToken(tokenStr, secret string) (jwt.MapClaims, error) {
+	token, err := jwt.Parse(tokenStr, func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, jwt.ErrSignatureInvalid
+		}
+		return []byte(secret), nil
+	})
+
+	if err != nil || !token.Valid {
+		return nil, err
 	}
 
-	_, ok := token.Claims.(jwt.MapClaims)
-	if !ok || !token.Valid {
-		return errors.New("invalid token")
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if !ok {
+		return nil, jwt.ErrInvalidKey
 	}
 
-	return nil
+	return claims, nil
 }
 
 func GetToken(c *gin.Context) (*jwt.Token, error) {
@@ -100,29 +102,4 @@ func getTokenFromRequest(c *gin.Context) string {
 	}
 
 	return ""
-}
-
-func CurrentUser(c *gin.Context) (db.User, error) {
-	err := ValidateToken(c)
-	if err != nil {
-		return db.User{}, err
-	}
-
-	token, err := GetToken(c)
-	if err != nil {
-		return db.User{}, err
-	}
-
-	claims, ok := token.Claims.(jwt.MapClaims)
-	if !ok {
-		return db.User{}, errors.New("invalid claims")
-	}
-	userId := uint(claims["id"].(float64))
-
-	user, err := db.GetUserById(userId)
-	if err != nil {
-		return db.User{}, err
-	}
-
-	return user, nil
 }
