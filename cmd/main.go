@@ -4,7 +4,7 @@ import (
 	"casino-web3/config"
 	"casino-web3/db"
 	"casino-web3/handlers"
-	"casino-web3/middleware"
+	"casino-web3/utils"
 	"log"
 
 	"github.com/gin-gonic/gin"
@@ -27,6 +27,8 @@ func main() {
 		log.Fatalf("Failed to load config: %v", err)
 	}
 
+	jwtService := utils.NewJWTService(*cfg)
+
 	r := gin.Default()
 
 	db := DBinit()
@@ -34,7 +36,7 @@ func main() {
 	server := handlers.NewServer(db)
 
 	router := r.Group("/auth")
-	r.Use(middleware.JwtAuthMiddleware())
+	r.Use(jwtService.Middleware())
 	{
 		router.POST("/register", server.RegisterUser)
 		router.POST("/login", server.LoginUser)

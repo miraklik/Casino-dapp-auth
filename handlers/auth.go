@@ -103,6 +103,12 @@ func (s *Server) LoginUser(c *gin.Context) {
 
 func (s *Server) LoginCheck(username, password string) (string, error) {
 	var err error
+	cfg, err := config.Load()
+	if err != nil {
+		log.Fatalf("Failed to load config: %v", err)
+	}
+	util := utils.NewJWTService(*cfg)
+
 	user := db.User{}
 
 	if err = s.db.Model(db.User{}).Where("username=?", username).Take(&user).Error; err != nil {
@@ -115,11 +121,21 @@ func (s *Server) LoginCheck(username, password string) (string, error) {
 		return "", err
 	}
 
-	token, err := utils.GenerateToken(user)
+	token, err := util.GenerateToken(user)
 
 	if err != nil {
 		return "", err
 	}
 
 	return token, nil
+}
+
+func (s *Server) Profile(c *gin.Context) {
+	user, err := utils.CurrentUser(c)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"user": user})
 }
